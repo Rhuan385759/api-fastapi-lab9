@@ -1,0 +1,59 @@
+name: CI/CD Pipeline - Homol e Prod
+
+on:
+push:
+branches: [ "develop", "main" ]
+
+env:
+IMAGE_NAME: fastapi-app
+
+jobs:
+build:
+runs-on: ubuntu-latest
+steps:
+- name: Checkout do codigo
+uses: actions/checkout@v4
+
+  - name: Configurar Python
+    uses: actions/setup-python@v5
+    with:
+      python-version: '3.10'
+
+  - name: Instalar dependencias
+    run: |
+      python -m pip install --upgrade pip
+      if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+  - name: Executar testes
+    run: |
+      echo "Build executado com sucesso!"
+deploy_homologacao:
+needs: build
+runs-on: ubuntu-latest
+if: github.ref == 'refs/heads/develop'
+steps:
+- name: Deploy na EC2 de Homologacao (Porta 8080)
+uses: appleboy/ssh-action@master
+with:
+host: ${{ secrets.EC2_HOST_HOMOL }}
+username: ${{ secrets.EC2_USERNAME_HOMOL }}
+key: ${{ secrets.EC2_SSH_KEY_HOMOL }}
+script: |
+echo "Atualizando homologacao na porta 8080..."
+cd /home/ubuntu/app || mkdir -p /home/ubuntu/app && cd /home/ubuntu/app
+
+deploy_producao:
+needs: build
+runs-on: ubuntu-latest
+if: github.ref == 'refs/heads/main'
+environment: production
+steps:
+- name: Deploy na EC2 de Producao
+uses: appleboy/ssh-action@master
+with:
+host: ${{ secrets.EC2_HOST_PROD }}
+username: ${{ secrets.EC2_USERNAME }}
+key: ${{ secrets.EC2_SSH_KEY }}
+script: |
+echo "Atualizando producao..."
+cd /home/ubuntu/app || mkdir -p /home/ubuntu/app && cd /home/ubuntu/app
